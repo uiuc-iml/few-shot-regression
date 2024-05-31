@@ -1,0 +1,24 @@
+model: DNNFineTuning
+
+#standard settings
+epochs: 100
+batch_size: 64
+optimizer: Adam
+lr: 0.001 #0.0003
+checkpoint_dir: checkpoint_dir/DNNFineTuning
+val_freq: 1 
+num_workers: 8
+lr_decay: 0.7
+lr_step: 20
+
+### DNNFineTuning-specific settings ###
+
+#DNN hidden layers
+hidden_layers: [16,8,4] #[128,32]
+hidden_batchnorm: False
+#Online fine-tuning settings
+online_train_epochs: 3
+online_optimizer: Adam
+online_lr: 0.1
+
+task_batch_size: 1

@@ -1,0 +1,21 @@
+model: GP
+
+#standard settings
+epochs: 100
+task_batch_size: 1
+optimizer: Adam
+lr: 0.1
+lr_decay: 0.7
+lr_step: 20
+checkpoint_dir: checkpoint_dir/FSGP
+val_freq: 1
+num_workers: 8
+
+### GP-specific settings ###
+
+#GP params
+GP_model_type: 'exact' #'exact' #'approximate'
+kernel: 'RBFKernel' #'SpectralMixtureKernel' #'RBFKernel'
+
+#Few-shot training settings
+k_shot: [1, 2,3,4,5]

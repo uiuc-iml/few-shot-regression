@@ -1,0 +1,26 @@
+
+epochs: 10
+task_batch_size: 11
+optimizer: Adam
+lr: 0.001
+lr_decay: 0.7
+lr_step: 20
+checkpoint_dir: checkpoint_dir/FewShotSR
+val_freq: 1
+num_workers: 0
+
+# few-shot training parameters
+k_shot: 10
+
+# architecture parameters
+d_fk_out: 8
+d_fb_out: 1
+task_representation_dim: 128
+encoder_hlayers: [256, 256]      # (x,y) -> z encoder hidden layers
+#aggregator_hlayers: [128, 128]  # could apply an MLP to the aggregator output, default is None
+f_b_hlayers: [128, 128]
+f_k_hlayers: [128, 128]
+mean_hlayers: [128, 128]         # hidden layers for the deep mean
+
+# GP parameters
+kernel: RBFKernel

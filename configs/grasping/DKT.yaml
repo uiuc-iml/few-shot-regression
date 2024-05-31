@@ -1,0 +1,27 @@
+model: DKL
+
+#standard settings
+epochs: 200  
+task_batch_size: 32 #
+optimizer: Adam
+lr: 0.001
+lr_decay: 0.7
+lr_step: 20
+checkpoint_dir: checkpoint_dir/DKT
+val_freq: 1 # validation frequency
+num_workers: 8
+
+### DKT-specific settings ###
+#kernel network parameters
+feature_hidden_layers: [128,32]
+
+#Few-shot training settings
+k_shot: [1,2,3,4,5]
+
+#GP params
+GP_model_type: 'exact' #'exact' #'approximate'
+kernel: 'RBFKernel' #'SpectralMixtureKernel'
+GP_input_dim: 10
+
+#early stopping
+#patience: 5

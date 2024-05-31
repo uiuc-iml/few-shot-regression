@@ -1,0 +1,27 @@
+model: FewShotSR
+
+#standard settings
+epochs: 100
+task_batch_size: 64
+optimizer: Adam
+lr: 0.01
+lr_decay: 0.7
+lr_step: 20
+k_shot: 10
+checkpoint_dir: checkpoint_dir/FewShotSR
+val_freq: 1
+num_workers: 4
+
+# architecture parameters
+d_fk_out: 16
+d_fm_out: 1
+d_fb_out: 1
+representation_size: 64
+encoder_hlayers: [64, 64]
+aggregator_hlayers: [32, 32]
+decoder_hlayers: [64, 64, 32]
+f_b_hlayers: [64, 64]
+f_k_hlayers: [64, 64]
+f_m_hlayers: [64, 64]
+
+

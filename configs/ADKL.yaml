@@ -1,0 +1,32 @@
+#standard settings
+model: ADKL
+
+epochs: 500
+task_batch_size: 50
+optimizer: Adam
+lr: 0.1
+lr_decay: 0.7
+lr_step: 50
+checkpoint_dir: checkpoint_dir/ADKL
+val_freq: 5
+num_workers: 0
+
+### ADKL-specific settings ###
+
+#Few-shot training settings
+k_shot: [1, 2, 3, 4, 5]
+
+d_x: 8
+d_y: 2
+GP_input_dim: 10              #how many dimensions to include in the GP input encoding of (x,task)
+task_representation_dim: 4    #how many dimensions to include in the GP task encoding
+encoder_hlayers: [16]
+aggregator_hlayers: [16]
+decoder_hlayers: [16]
+
+#GP params
+kernel: 'RBFKernel' #'RBFKernel' # 'SpectralMixtureKernel'
+#kernel_num_mixtures: 4
+
+
+

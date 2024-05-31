@@ -1,0 +1,35 @@
+#standard settings
+
+epochs: 50
+batch_size: 128
+optimizer: Adam
+lr: 0.1
+lr_decay: 0.7
+lr_step: 20
+checkpoint_dir: checkpoint_dir/GP
+val_freq: 1
+num_workers: 0
+
+#if you want to train a few-shot GP, you can specify the k_shot parameter, e.g., k_shot: 5, or k_shot: [1, 2, 3, 4, 5]
+# k_shot: [1, 2,3,4,5]
+
+### GP-specific settings ###
+
+#kernel network parameters
+PCA_dim: 10
+PCA: False
+
+# the marginal loss measures the MLL over the entire task (union of support and query), whereas the conditional loss measures
+# the MLL over the query set only conditioned on the support set.
+# loss: 'marginal' or 'conditional'
+
+
+#GP params
+GP_model_type: 'exact' #'exact' #'approximate'
+kernel: 'RBFKernel' #'RBFKernel' or 'SpectralMixtureKernel'
+#kernel_independent_scaling: true  #if true, each dimension of the input is scaled independently
+#kernel_num_mixtures: 4  #if using SpectralMixtureKernel, specify the number of mixtures
+
+#Multi-output parameters
+#multi_output: true
+#rank: 10    #set this if you want to specify the rank of the task covariance matrix

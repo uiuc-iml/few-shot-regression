@@ -1,0 +1,43 @@
+#standard settings
+model: ADKL
+
+epochs: 500
+task_batch_size: 32
+optimizer: Adam
+lr: 0.001
+lr_decay: 0.7 #0.8
+lr_step: 20
+checkpoint_dir: checkpoint_dir/ADKL
+val_freq: 1
+
+#backbone_model_path: ADKL/checkpoint_dir/ADKL/debug/33_backbone.tar # comment if pretrained model is not available
+#trained_model_path: ADKL/checkpoint_dir/ADKL/debug/33.tar
+#backbone_model_path: /home/dohun/Repos/fewshot-regrasping/ADKL/checkpoint_dir/ADKL/chairmugs_best_backbone_model.tar # comment if pretrained model is not available
+#trained_model_path: /home/dohun/Repos/fewshot-regrasping/ADKL/checkpoint_dir/ADKL/chairmugs_best_model.tar
+#backbone_model_path: /home/dohun/Repos/fewshot-regrasping/ADKL/checkpoint_dir/ADKL/chars_none_best_backbone_model.tar # comment if pretrained model is not available
+#trained_model_path: /home/dohun/Repos/fewshot-regrasping/ADKL/checkpoint_dir/ADKL/chars_none_best_model.tar
+#backbone_model_path: /home/dohun/Repos/fewshot-regrasping/ADKL/checkpoint_dir/ADKL/chars_vae_best_backbone_model.tar # comment if pretrained model is not available
+#trained_model_path: /home/dohun/Repos/fewshot-regrasping/ADKL/checkpoint_dir/ADKL/chars_vae_best_model.tar
+
+num_workers: 8
+
+### ADKL-specific settings ###
+
+#Few-shot training settings
+k_shot: [1, 2, 3, 4, 5]
+
+#Deep Kernel params
+d_x: 128
+d_y: 128
+d_out: 128
+representation_size: 256
+u_hlayers: [128, 128]
+v_hlayers: [128, 128]
+encoder_hlayers: [256, 256]
+aggregator_hlayers: [256, 256]
+decoder_hlayers: [256, 256, 128, 128]
+
+#GP params
+kernel: 'RBFKernel' #'SpectralMixtureKernel'
+
+

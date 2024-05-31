@@ -1,0 +1,23 @@
+model: DKL
+
+#standard settings
+epochs: 100
+batch_size: 512
+optimizer: Adam
+lr: 0.1
+lr_decay: 0.7
+lr_step: 10
+checkpoint_dir: checkpoint_dir/DKL
+val_freq: 1 
+num_workers: 0
+
+### DKL-specific settings ###
+
+#kernel network parameters
+feature_hidden_layers: [8,4] #[128,32]
+
+#GP params
+GP_model_type: 'exact' #'exact' #'approximate'
+kernel: 'RBFKernel' #'SpectralMixtureKernel' #'RBFKernel'
+GP_input_dim: 2
+

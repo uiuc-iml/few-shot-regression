@@ -1,0 +1,23 @@
+model: DKL
+
+#standard settings
+epochs: 1
+batch_size: 256
+optimizer: Adam
+lr: 0.01
+lr_decay: 0.7
+lr_step: 20
+checkpoint_dir: checkpoint_dir/DKL
+val_freq: 1 
+num_workers: 8
+
+### DKL-specific settings ###
+
+#kernel network parameters -- this specifies the MLP feature map having layer sizes #input -> 8 -> 4 -> 10
+feature_hidden_layers: [8,4] #[128,32]
+
+#GP params
+GP_input_dim: 10
+GP_model_type: 'exact' #'exact' #'approximate'
+kernel: 'RBFKernel' #'SpectralMixtureKernel' #'RBFKernel'
+

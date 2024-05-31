@@ -1,0 +1,27 @@
+model: GP
+
+#standard settings
+epochs: 50
+task_batch_size: 1
+optimizer: Adam
+lr: 0.01
+lr_decay: 0.7
+lr_step: 20
+checkpoint_dir: checkpoint_dir/FSGP
+val_freq: 1
+num_workers: 0
+
+### GP-specific settings ###
+
+#kernel network parameters
+PCA_dim: 10
+PCA: False
+PCA_model_path: ../../problem_chairmug_svd_model.sav
+
+#Few-shot training settings
+k_shot: [1,2,3,4,5]
+
+
+#GP params
+GP_model_type: 'exact' #'exact' #'approximate'
+kernel: 'RBFKernel' #'SpectralMixtureKernel' #'RBFKernel'

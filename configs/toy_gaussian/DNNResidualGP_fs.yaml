@@ -1,0 +1,23 @@
+model: DNNResidualGP
+
+#standard settings
+epochs: 150
+batch_size: 64
+optimizer: Adam
+lr: 0.001
+checkpoint_dir: checkpoint_dir/DNNResidualFSGP
+val_freq: 1
+num_workers: 8
+lr_decay: 0.7
+lr_step: 20
+
+### DNNResidualGP-specific settings ###
+
+#DNN hidden layers
+hidden_layers: [16,8,4]
+hidden_batchnorm: False
+
+#GP learning parameters
+gp_k_shot: [1,2,3,4,5,6,7,8,9,10]   #few-shot learning
+gp_lr: 0.1
+gp_training_iter: 20 #50

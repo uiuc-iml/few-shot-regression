@@ -1,0 +1,25 @@
+model: CNP
+
+epochs: 1000
+task_batch_size: 32
+optimizer: Adam
+lr: 0.0003 #0.001
+lr_decay: 0.9 # 0.9 works for overfitting
+lr_step: 50 # 50 works in general
+checkpoint_dir: checkpoint_dir/CNP
+val_freq: 1 # validation frequency
+num_workers: 4
+
+k_shot: 5
+
+# model params
+d_x: 128
+d_y: 128
+d_out: 2
+representation_size: 128
+encoder_hlayers: [256, 512]
+aggregator_hlayers: [256, 256]
+decoder_hlayers: [256, 256, 128, 128, 64]
+
+
+

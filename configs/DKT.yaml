@@ -1,0 +1,28 @@
+model: DKL
+
+#standard settings
+epochs: 100 
+optimizer: Adam
+lr: 0.1 
+lr_decay: 0.7
+lr_step: 20
+checkpoint_dir: checkpoint_dir/DKT
+val_freq: 1 # additional parameter to explicitly set validation frequency
+num_workers: 0
+
+#Few-shot training settings
+#k_shot: 5
+k_shot: [1, 2,3,4,5]
+#num_draws_per_task: 5
+#query_set_size : null  #uses all the query data if null
+#task_batch_size: 32 #must be 1 if k_shot is a list
+task_batch_size: 1
+
+### DKT-specific settings ###
+#kernel network parameters -- this specifies the MLP feature map having layer sizes #input -> 8 -> 4 -> 10
+feature_hidden_layers: [8,4] #[128,32]
+
+#GP params
+GP_input_dim: 10
+GP_model_type: 'exact' #'exact' #'approximate'
+kernel: 'RBFKernel' #'SpectralMixtureKernel'

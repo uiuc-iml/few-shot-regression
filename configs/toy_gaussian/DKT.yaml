@@ -1,0 +1,24 @@
+#standard settings
+
+epochs: 200  #150 for toy Gaussian
+task_batch_size: 32 #
+optimizer: Adam
+lr: 0.1 #0.1 for toy Gaussian
+lr_decay: 0.7
+lr_step: 20
+checkpoint_dir: checkpoint_dir/DKT
+online_train_epochs: 1
+val_freq: 1 # additional parameter to explicitly set validation frequency
+num_workers: 0
+
+### DKT-specific settings ###
+#kernel network parameters
+feature_hidden_layers: [8,4] #[128,32]
+
+#Few-shot training settings
+k_shot: [1, 2,3,4,5]
+
+#GP params
+GP_model_type: 'exact' #'exact' #'approximate'
+kernel: 'RBFKernel' #'SpectralMixtureKernel'
+

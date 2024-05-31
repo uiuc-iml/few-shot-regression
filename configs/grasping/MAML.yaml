@@ -1,0 +1,21 @@
+model: MAML
+
+#standard settings
+epochs: 1000
+task_batch_size: 32
+optimizer: Adam
+lr: 0.0003
+lr_decay: 0.7
+lr_step: 20
+checkpoint_dir: checkpoint_dir/MAML
+val_freq: 1 # validation frequency
+num_workers: 0
+
+k_shot: 5
+
+# inner loop SGD update
+num_updates: 1
+update_lr: 0.005 # 0.01 original
+
+# model params
+hidden_layers: [512, 256, 128, 64]

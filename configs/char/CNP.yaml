@@ -1,0 +1,25 @@
+model: CNP
+
+epochs: 1
+task_batch_size: 32
+optimizer: Adam
+lr: 0.001
+lr_decay: 0.7
+lr_step: 20
+checkpoint_dir: checkpoint_dir/CNP
+val_freq: 1 # validation frequency
+num_workers: 8
+
+k_shot: 5
+
+# model params
+d_x: 128
+d_y: 128
+d_out: 2
+representation_size: 128
+encoder_hlayers: [256, 256]
+aggregator_hlayers: [256, 256]
+decoder_hlayers: [256, 256, 128, 128]
+
+
+

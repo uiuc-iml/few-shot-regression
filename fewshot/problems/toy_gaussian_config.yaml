@@ -1,0 +1,22 @@
+num_tasks: 90
+num_samples_per_task: 101
+x_range: [-10, 10]
+train_mu_range: [-7.0, 7.0]
+train_std_range: [1.0,1.0]
+sideinfo: null
+dataset_noise: 0.01
+
+#in distribution test
+test_mu_range: [-10, 10]
+test_std_range: [1.0,1.0]
+
+variants:
+  out_distribution:
+    test_mu_range: [10, 20]
+    test_std_range: [1.0,1.0]
+  noisy:
+    dataset_noise: 0.1
+  with_derivative:
+    sideinfo: 'derivative'
+  with_displacement:
+    sideinfo: 'displacement'
