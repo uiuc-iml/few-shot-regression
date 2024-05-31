@@ -1,13 +1,12 @@
-# Few-shot Regression and Sequential Decision Making Benchmark
+# Few-shot Regression Benchmark
 
-Authors: Mengchao Zhang, Yifan Zhu, Dohun Jeong, Pranay Thangeda, Aditya Prakash, Patrick Naughton, and Kris Hauser
+Authors: Yifan Zhu, Dohun Jeong, Pranay Thangeda, Aditya Prakash, and Kris Hauser
 
 University of Illinois, Urbana-Champaign
 
 ## About
 
-This package implements a PyTorch-based few-shot regression suite, as well as applications to
-sequential decision-making problems with high-dimensional inputs.
+This package implements a PyTorch-based few-shot regression suite with a uniform API between multiple models.  
 
 
 ## Installing dependencies
@@ -28,12 +27,11 @@ Adaptive deep models:
 - Deep Neural Network Fine Tuning (DNNFineTuning)
 - Conditional Neural Processes (CNP) [3]
 - BUGGY: Model-agnostic Meta Learning (MAML)
-- Few-shot spatial regression [5]
+- BUGGY: Few-shot spatial regression [5]
 
 Probabilistic, adaptive (shallow) models:
 - Gaussian Process (GP), both independent and Multi-Output GP [6]
 - Deep Neural Network Residual GP (DNNResidualGP)
-- TODO: Deep Neural Network Residual MOGP (DNNResidualMOGP) 
 
 Probabilistic, adaptive (deep) models:
 - Deep Kernel Learning (DKL) [1]
@@ -271,151 +269,9 @@ the `all_models()` function in `fewshot/allmodels.py`.  It is now ready for test
 using the standard (`learning_test.py` / `decision_test.py`) scripts.
 
 
-### Known issues
+## Known issues
 
 - When y is encoded/decoded, probabilistic models do not properly decode the standard deviation.
 - iMAML is buggy.
 - FewShotSR is buggy.
-
-
-## Application to Sequential Decision Problems
-
-Sequential decision making problems often involve transition dynamics, observation model, and even a state space that are unknown and/or difficult to model.  Such settings are commonly found in spatial / spatiotemporal active sensing problems, in which a latent and hidden field governs the observations and reward.  In these problems, the state space is the latent field itself, which is infinite dimensional and may have a complex relationship to the observations and reward.
-
-A decision problem is modeled as a sequence `observation0, action0, outcome0, observation1, action1, outcome1, ...` of typically vector-like objects. There is a numeric reward that is a deterministic function `reward(observation,action,outcome)`, and the decision problem is to choose actions to maximize the sum of rewards. 
-
-Few-shot regression is a useful approach to implicitly model the latent dynamics indirectly by simply learning the relationship from past actions and observations to future ones.  The approach uses incremental learning to *adapt on-line* to the history of observations and outcomes during each trial.  Specifically, after each `(observation,action,outcome,reward)` cycle, these items are encoded and passed to an `update()` method in the model.  The model then predicts a reward or an (outcome,reward) pair (depending on how our method is configured).
-
-**Note: In the current stage of this work, we address stationary (contextual bandit-like) problems with latent characteristics. We are not currently addressing problems involving significant multi-step prediction and state dynamics.**
-
-We usually model reward as the first element of the outcome vector, and indeed in many problems the only outcome is the reward.  The reason why we have an extra outcome vector is that a) some "extra" outcomes include action-conditioned sensor data (e.g., force readings or object displacements when manipulating an object). In many problems it would be cumbersome to include this information in the observation, e.g., would require a predictor to handle empty channels in the observation as special cases.
-
-After the predictions are made, a score-based decision-maker estimates a scoring function `score(observation, action)` and at each stage picks the action that maximizes the score.  A Bayesian decision maker, such as UCB and Expected Improvement, provide a probability distribution of possible scores, and at each stage picks the action that maximizes some function of the score distribution.  For example, UCB picks $\arg \max_a E[s(o,a)] + s \cdot \sigma(o,a)$ where $\sigma(o,a)$ is the predicted standard deviation of the score and $s$ is a scaling factor that boosts the likelihood of choosing actions whose score is uncertain.
-
-### Learning outcomes and rewards
-
-We can configure the learning problem to either predict a reward `[reward] = f((observation,action))` or a concatenated outcome vector `(outcome,reward) = f((observation,action))`.
-
-An optional input encoder consumes `(observation,action)` pairs and produces a vector $x(o,a)$.  An optional output encoder produces a vector $y(z)$ with $z$ denoting the `outcome` vector.  
-The models will adapt to a support set $(X_{supp},Y_{supp})$ given by
-
-$$X_{supp} = \\{x(o_{supp,1},a_{supp,1}),...,x(o_{supp,k},a_{supp,k}) \\},$$
-
-$$Y_{supp} = \\{stack(y(z_{supp,1}),r_{supp,1}),...,stack(y(z_{supp,k}),r_{supp,k}) \\}.$$
-
-The default encoders assume the observation, action, and outcome are vectors.  The default observation/action encoder just concatenates the vectors, i.e., $x_{default}(o,a)=stack(o,a)$, and the default outcome encoder $y_{default}(z)$ simply returns $z$.
-
-
-
-### Testing decision-making models
-
-Run ``decision_test.py`` specifying a problem and a model as follows:
-
-```
-> python decision_test.py --problem toy_gaussian --model=DNNFineTuning --seed 0 --testsplit=0.3 --metric_k_shot=5 --metric=accuracy
-```
-
-This will perform training and 0-shot accuracy testing of a model.  We specify the
-random seed for consistency between runs.
-
-To rerun the trained model but testing k-shot accuracy, use the ``--reload`` and
-`--metric_k_shot` arguments:
-
-```
-> python test.py --problem toy_gaussian --model=DNNFineTuning --reload --seed 0 --testsplit=0.3 --metric_k_shot=5 --metric=accuracy
-```
-
-This will take much more time, since support sets from the entire dataset are sampled, and
-then testing is performed on the remainder of the dataset.
-
-Next, we can test in rollout mode using ``--metric=rollout``, which simulates what the
-decision-maker would actually do in the benchmark:
-
-```
-> python test.py --problem toy_gaussian --model=DNNFineTuning --reload --seed 0 --testsplit=0.3 --metric_k_shot=5 --metric=rollout
-```
-
-By default, if the model is probabilistic, a UCB decision-maker is used. If the model
-is not probabilistic, a greedy decision-maker is used.
-
-
-Documentation:
-
-```
-usage: decision_test.py [-h] [--problem P] [--problemconfig C] --model M
-               [--modelconfig C] [--reload] [--modelfile F]
-               [--decisionmaker D] [--testsplit S] [--metric M]
-               [--metric_k_shot K] [--seed SEED]
-
-A testing script for known models and problems in the fewshot library.
-
-optional arguments:
-  -h, --help         show this help message and exit
-  --problem P        The benchmark problem to test, currently only supports
-                     toy_gaussian
-  --problemconfig C  The config file used to specify a benchmark variant, e.g.
-                     fewshot/problems/toy_gaussian_derivative_config.yaml
-  --model M          The model to test, e.g., DNNResidualGP
-  --modelconfig C    A YAML configuration file for the model, e.g.,
-                     fewshot/DNNResidualGP/non-few-shot-config.yaml
-  --reload           Reloads the previously trained temp model instead of
-                     training
-  --modelfile F      Reloads a previously trained model (.pkl) instead of
-                     training
-  --decisionmaker D  The decision making algorithm, e.g., Random, Greedy, UCB,
-                     EI
-  --testsplit S      The fraction of the dataset to retain for testing, or
-                     specify a 'standard' split by name
-  --metric M         Either 'accuracy' or 'rollout'
-  --metric_k_shot K  If metric=accuracy, a non-zero value performs k-shot
-                     testing
-  --seed SEED        A random seed
-```
-
-
-
-
-
-
-### Adding your own problem
-
-To try these methods on your own decision-making problem, you must:
-
-1. Define the problem setting via a `DecisionTask`.
-2. Define a dataset (`MultiTaskDataset`) consisting of data from multiple task instances.
-3. Define a simulator for evaluation (`DecisionEnvironment`).
-
-**Step 1**: You must implement a `DecisionTask` subclass that describes the setting
-for your problem.  If your observation and/or outcome are not simple vectors, you should
-specify the encoding backbone(s) as well.  (It is recommendd to have a default set of backbone
-weights predefined, since most networks will not do a good job modifying these weights. )
-
-**Step 2**: You must create a `MultiTaskDataset` for your problem defining data to train and
-test models.
-
-Each task is represented by a `TaskDataset` in which the dynamics of the system may depend
-on some (latent) task variables.  These are like PyTorch Datasets in that they provide an abstract
-list-like interface with `__len__` and `__getitem__`.  **NOTE: There is no assumed notion of sequentiality
-in each task dataset.**
-
-If you know the latent task variables, you can implement them in the `latent_vars` method.
-(No implemented method uses these now, but in the future we might try to add methods that infer the
-latent variables from the support set.)
-
-**Step 3**: To perform evaluation, you should create a `DecisionEnvironment` subclass
-that simulates your decision problem.  
-
-
-### Adding new benchmarks
-
-A new benchmark should subclass the `DecisionBenchmark` class to provide its task, training data, 
-testing data, and (optional) testing environments.  By default, the testing environment
-will just use the testing dataset.
-
-Variants of benchmarks can be specified with YAML files.
-
-When you are done implementing your benchmark, add the benchmark and its name to
-the `all_benchmark()` function in `fewshot/decision/problems/allbenchmarks.py`.  It is now
-ready for testing using the standard (test.py) script.
-
 
