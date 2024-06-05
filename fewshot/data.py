@@ -22,6 +22,17 @@ class TaskDataset:
         """If not None, gives ground-truth latent variables for this task."""
         return None
 
+    def split(self,fraction=0.5,shuffle=True) -> Tuple[TaskDataset,TaskDataset]:
+        """Splits a dataset into two pieces (task-wise). If shuffle=True, the
+        indices are chosen randomly.
+        """
+        if shuffle:
+            order = np.random.permutation(len(self))
+        else:
+            order = list(range(len(self)))
+        splitindex = int(len(order)*fraction)
+        return SubsetTaskDataset(self,order[:splitindex]),SubsetTaskDataset(self,order[splitindex:])
+
     def subsample(self,fraction=None,count=None) -> StandardTaskDataset:
         """Subsamples the dataset.  If fraction is given, this is the fraction
         of examples to keep.  If count is given, this is the total number of
@@ -34,8 +45,7 @@ class TaskDataset:
         if count==len(self):
             return self
         indices = np.sort(np.random.choice(len(self),count,replace=False))
-        items = [self[i] for i in indices]
-        return StandardTaskDataset(items)
+        return SubsetTaskDataset(self,indices)
 
 
 class StandardTaskDataset(TaskDataset):
@@ -54,6 +64,22 @@ class StandardTaskDataset(TaskDataset):
     
     def latent_vars(self):
         return self._latent_vars
+
+
+class SubsetTaskDataset(TaskDataset):
+    """Subsets a set of tasks."""
+    def __init__(self,data : TaskDataset,indices : List[int]):
+        self.data = data
+        self.indices = indices
+    
+    def __len__(self) -> int:
+        return len(self.indices)
+    
+    def __getitem__(self, i:int):
+        return self.data[self.indices[i]]
+
+    def latent_vars(self):
+        return self.data.latent_vars()
 
 
 class MultiTaskDataset(ABC):
@@ -129,7 +155,8 @@ class SubsetMultiTaskDataset(MultiTaskDataset):
 
 
 class FlatDataset:
-    """A Pytorch compatible dataloader for standard learning."""
+    """Converts a multi-task dataset to a Pytorch-compatible dataloader
+    for standard learning."""
     def __init__(self,data : MultiTaskDataset):
         self.all_data = []
         for task in data:
@@ -144,14 +171,81 @@ class FlatDataset:
         return self.all_data[i]
 
 
+class TaskBatchedDataset:
+    """Converts a multi-task dataset into a batched Pytorch-compatible
+    dataset sampled for standard learning.  Can iterate through this
+    directly, or you can use a Dataloader with batchsize=1.
+
+    For each task, will draw `num_draws_per_task` tuples `(xb,yb)` each
+    of leading dimension `batch_size`.  Each batch is guaranteed to consist
+    of examples from the same task.  If `num_draws_per_task` is None (default),
+    then the task is split evenly into batches.
+    """
+    def __init__(self, data : MultiTaskDataset, batch_size : int,
+                      num_draws_per_task : Optional[Union[int,float]]=None,
+                      shuffle=True):
+        self.data = data
+        self.batch_size = batch_size
+        item_indices = []
+        for i in range(len(self.data)):
+            task = self.data[i]
+            ndraws = num_draws_per_task
+            if num_draws_per_task is None:
+                if shuffle:
+                    tindices = np.random.permutation(len(task))
+                else:
+                    tindices = np.arange(len(task))
+                #split task evenly
+                for b in range(0,len(task),batch_size):
+                    if b + batch_size <= len(task):
+                        item_indices.append((task,tindices[b:b+batch_size]))
+                    else:
+                        items = tindices[b:].tolist()
+                        for j in range(batch_size - (len(task)-b)):
+                            items.append(np.random.randint(0,len(task)-1))
+                        item_indices.append((task,np.array(items)))
+            else:
+                if isinstance(num_draws_per_task,int):
+                    ndraws = num_draws_per_task
+                elif isinstance(num_draws_per_task,float):
+                    ndraws = int(len(task)*num_draws_per_task)
+                for draw in range(ndraws):
+                    #sample a batch from the task
+                    k = min(self.batch_size,len(task)-1)
+                    inds = np.arange(len(task))
+                    np.random.shuffle(inds)
+                    batch = inds[:k]
+                    item_indices.append((task,batch))
+        self.item_indices = item_indices    # List[Tuple[TaskDataset,List[int]]]
+    
+    def __len__(self):
+        return len(self.item_indices)
+    
+    def __getitem__(self,i) -> Tuple[Any,Any]:
+        task,batch = self.item_indices[i]
+        xb = []
+        yb = []
+        for i in batch:
+            if len(task[i])==2:
+                xb.append(task[i][0])
+                yb.append(task[i][1])
+            else:
+                xb.append(task[i][:-1])
+                yb.append(task[i][-1])
+        return (torch.utils.data.default_collate(xb),torch.utils.data.default_collate(yb))
+
 class FewShotDataset:
-    """A dataset sampled for few-shot learning.  
+    """Converts a multi-task dataset into a Pytorch-compatible dataset
+    sampled for few-shot learning.  
     
     For each task, will draw `num_draws_per_task` tuples
     `((x_supp,y_supp),
       (x_query,y_query))`
     by sampling `support_size` items from each task for the support set, and
     `query_size` items for the query set.
+
+    Note:
+        During training, must set `batch_size=1` if `support_size` is a list.
 
     Args:
         data: the base dataset
@@ -209,11 +303,19 @@ class FewShotDataset:
         query_x = []
         query_y = []
         for i in supp:
-            supp_x.append(task[i][0])
-            supp_y.append(task[i][1])
+            if len(task[i])==2:
+                supp_x.append(task[i][0])
+                supp_y.append(task[i][1])
+            else:
+                supp_x.append(task[i][:-1])
+                supp_y.append(task[i][-1])
         for i in query:
-            query_x.append(task[i][0])
-            query_y.append(task[i][1])
+            if len(task[i])==2:
+                query_x.append(task[i][0])
+                query_y.append(task[i][1])
+            else:
+                query_x.append(task[i][:-1])
+                query_y.append(task[i][-1])
         return ((stack(supp_x),stack(supp_y)),(stack(query_x),stack(query_y)))
 
 
