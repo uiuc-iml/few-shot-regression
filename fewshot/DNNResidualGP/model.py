@@ -7,7 +7,6 @@ from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import gpytorch
 
-from ..decisions.task import DecisionTask
 from ..data import MultiTaskDataset,FlatDataset,FewShotDataset
 from ..utils import MLP,TorchTrainableModel, totorch, EarlyStopping
 from ..model import SupervisedLearningProblem,AdaptiveModel,ProbabilisticModel,TorchModelModule
@@ -42,7 +41,7 @@ class DNNMeanResidualGPs(TorchModelModule):
 
         #move all gp_ parameters to gp_params
         gp_params = {}
-        for (k,v) in params:
+        for (k,v) in params.items():
             if k.startswith('gp_'):
                 gp_params[k[3:]] = v
         gp_params['zero_mean'] = True  #force the MLP to absorb the constant offset?
