@@ -276,6 +276,7 @@ class FewShotDataset:
                 ndraws = num_draws_per_task
             elif isinstance(num_draws_per_task,float):
                 ndraws = int(len(task)*num_draws_per_task)
+            from icecream import ic
             for draw in range(ndraws):
                 #sample a support set from the task
                 if isinstance(self.support_size,int):

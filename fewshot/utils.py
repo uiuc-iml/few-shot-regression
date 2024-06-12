@@ -685,7 +685,6 @@ class TorchTrainableModel(TrainableModel):
             if self.params.get('lr_decay',0):
                 for g in self.optimizer.param_groups:
                     g['lr'] = max(self.params['lr'] * (self.params['lr_decay'] ** (epoch // self.params['lr_step'])), LEARNING_RATE_CLIP)
-
             self.train_epoch(train_loader, epoch, writer)
 
             res = self.test_epoch(val_loader, epoch, writer)
