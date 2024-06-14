@@ -459,6 +459,9 @@ class TorchTrainableModel(TrainableModel):
 
         # Load backbone to device
         self.problem.setup_backbone()
+        #store backbone as attributes so they are saved and loaded as part of state_dict()
+        self.x_encoder = self.problem.x_encoder
+        self.y_encoder = self.problem.y_encoder
 
         # load pretrained observation_action_encoder
         if self.params.get('x_encoder', None):
