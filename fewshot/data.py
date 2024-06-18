@@ -82,6 +82,24 @@ class SubsetTaskDataset(TaskDataset):
         return self.data.latent_vars()
 
 
+def AugmentedTaskDatset(TaskDataset):
+    """A task dataset that performs data augmentation on the fly.  The
+    transform function should take an (x,y) pair and return a new (x,y) pair."""
+    def __init__(self, data : TaskDataset, transform : Callable):
+        self.data = data
+        self.transform = transform
+    
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self,i):
+        x,y = self.data[i]
+        return self.transform(x,y)
+
+    def latent_vars(self):
+        return self.data.latent_vars()
+
+
 class MultiTaskDataset(ABC):
     """A multi-task decision dataset."""
     @abstractmethod
@@ -154,21 +172,43 @@ class SubsetMultiTaskDataset(MultiTaskDataset):
         return self.data[self.task_indices[i]]
 
 
-class FlatDataset:
-    """Converts a multi-task dataset to a Pytorch-compatible dataloader
-    for standard learning."""
-    def __init__(self,data : MultiTaskDataset):
-        self.all_data = []
-        for task in data:
-            for i in range(len(task)):
-                self.all_data.append(task[i])
+class AugmentedMultiTaskDataset(MultiTaskDataset):
+    """A multi-task dataset that performs data augmentation on the fly.  The
+    transform function should take an (x,y) pair and return a new (x,y) pair.
+    """
+    def __init__(self, data : MultiTaskDataset, transform : Callable):
+        self.data = data
+        self.transform = transform
     
     def __len__(self):
-        return len(self.all_data)
+        return len(self.data)
+
+    def __getitem__(self,i):
+        return AugmentedTaskDatset(self.data[i],self.transform)
+
+
+class FlatDataset:
+    """Converts a multi-task dataset to a Pytorch-compatible dataloader
+    for standard learning.
+    
+    Works with data augmentation and dynamic loading.
+    """
+    def __init__(self,data : MultiTaskDataset):
+        self.data = data
+        self.all_data_indices = []
+        for i,task in enumerate(data):
+            for j in range(len(task)):
+                self.all_data_indices.append((i,j))
+    
+    def __len__(self):
+        return len(self.all_data_indices)
         #return sum(len(task) for task in self.data)
     
     def __getitem__(self,i:int) -> Tuple[Any,Any]:
-        return self.all_data[i]
+        t,j = self.all_data_indices[i]
+        assert t < len(self.data)
+        assert j < len(self.data[t])
+        return self.data[t][j]
 
 
 class TaskBatchedDataset:
@@ -233,6 +273,7 @@ class TaskBatchedDataset:
                 xb.append(task[i][:-1])
                 yb.append(task[i][-1])
         return (torch.utils.data.default_collate(xb),torch.utils.data.default_collate(yb))
+
 
 class FewShotDataset:
     """Converts a multi-task dataset into a Pytorch-compatible dataset

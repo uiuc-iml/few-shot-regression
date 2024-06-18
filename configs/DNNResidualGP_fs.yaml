@@ -11,6 +11,14 @@ num_workers: 8
 lr_decay: 0.7
 lr_step: 20
 
+#Few-shot training settings
+k_shot: 5
+#k_shot: [1,2,3,4,5]
+#num_draws_per_task: 5
+#query_set_size : null  #uses all the query data if null
+#task_batch_size: 32 #must be 1 if k_shot is a list
+#resample_per_epoch: True  # whether to resample the support / query training pairs each epoch or keep them fixed
+
 ### DNNResidualGP-specific settings ###
 
 #DNN hidden layers
