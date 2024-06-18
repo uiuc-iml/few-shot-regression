@@ -7,9 +7,8 @@ from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import gpytorch
 
-from ..decisions.task import DecisionTask
 from ..data import MultiTaskDataset,FlatDataset,FewShotDataset
-from ..utils import MLP,TorchTrainableModel, totorch, EarlyStopping
+from ..utils import MLP,TorchTrainableModel, totorch
 from ..model import SupervisedLearningProblem,AdaptiveModel,ProbabilisticModel,TorchModelModule
 from ..GP.model import GP
 from .. import utils
