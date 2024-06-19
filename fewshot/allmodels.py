@@ -13,6 +13,7 @@ def all_models() -> dict:
     from .DKL import DKLModel
     from .GP import GPModel
     from .MAML import MAMLModel
+    from .CoDeGa import CoDeGaModel
     return {
         'ADKL':ADKLModel,
         'CNP':CNPModel,
@@ -25,6 +26,7 @@ def all_models() -> dict:
         'GP':GPModel, 
         'FSGP':GPModel, 
         'MAML':MAMLModel,
+        'CoDeGa':CoDeGaModel,
     }
 
 def probabilistic_models() -> Dict[str,ProbabilisticModel]:
@@ -33,6 +35,7 @@ def probabilistic_models() -> Dict[str,ProbabilisticModel]:
     from .DNNResidualGP import DNNResidualGPModel
     from .DKL import DKLModel
     from .GP import GPModel
+    from .CoDeGa import CoDeGaModel
     return {
         'ADKL':ADKLModel,
         'FewShotSR':FewShotSRModel,
@@ -41,7 +44,8 @@ def probabilistic_models() -> Dict[str,ProbabilisticModel]:
         'DKT':DKLModel,
         'DKL':DKLModel,
         'GP':GPModel, 
-        'FSGP':GPModel, 
+        'FSGP':GPModel,
+        'CoDeGa':CoDeGaModel,
     }
 
 def adaptive_models() -> Dict[str,AdaptiveModel]:

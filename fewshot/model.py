@@ -167,8 +167,6 @@ class TorchModelModule(nn.Module):
     def forward_fewshot_loss(self,support_set,query_set):
         support_x, support_y = support_set
         query_x, query_y = query_set
-        from icecream import ic
-        ic('forward fewshot loss', support_x.shape)
         support_core = (self.problem.encode_input(support_x), self.problem.encode_output(support_y))
         query_core = (self.problem.encode_input(query_x), self.problem.encode_output(query_y))
         loss,ycore_pred = self.forward_core_fewshot_loss(support_core,query_core)

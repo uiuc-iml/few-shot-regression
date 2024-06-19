@@ -228,7 +228,7 @@ def standard_testing_epoch(dataloader, predict_step:Callable,
 
 
 def fewshot_training_epoch(dataloader, optimize_step:Callable,
-                            writer=None,epoch=0,classification=False):
+                            writer=None,epoch=0,classification=False, return_loss = False):
     """Run an epoch of standard few-shot training, with proper printouts."""
     if classification:
         from sklearn.metrics import precision_score, recall_score
@@ -248,9 +248,8 @@ def fewshot_training_epoch(dataloader, optimize_step:Callable,
             batch_size = query_data[-1][0].shape[0] * query_data[-1][0].shape[1]  #number of tasks * number of query points
             loss, p = optimize_step(support_data,query_data)
             p = fromtorch(p)
-            out = query_data[0]
+            out = query_data[1]
             labels = fromtorch(out.float()) 
-
             train_running_loss += loss.item() * batch_size  #assumes loss is MSE?
             train_running_MAE += np.mean(np.abs(labels-p))
             if classification:
@@ -287,6 +286,8 @@ def fewshot_training_epoch(dataloader, optimize_step:Callable,
     else:
         print(f"Epoch loss: {epoch_loss}, Epoch MAE: {epoch_MAE}")
 
+    if return_loss:
+        return train_loss
 
 def fewshot_testing_epoch(dataloader, predict_step:Callable,
                             writer=None,epoch=0,classification=False):
@@ -746,6 +747,119 @@ class TorchTrainableModel(TrainableModel):
             return fromtorch(res)
     
 
+class TwoStageTorchTrainableModel(TorchTrainableModel):
+    """A base class for fewshot PyTorch models with two stages, a zero-shot trainig stage and an adaptive stage.
+    
+    Standard usage:
+    - Override zero_shot_train
+    - Override adaptive_train
+    """
+    def __init__(self,
+                problem: SupervisedLearningProblem,
+                params : Union[str,dict,TorchTrainingParams]):
+        super().__init__(problem, params)
+
+    def zero_shot_train(self, train_loader, val_loader, write = None):
+        raise NotImplementedError()
+
+    def adaptive_train(self, train_loader, val_loader, write = None):
+        raise NotImplementedError()
+
+    def train(self, train_data : MultiTaskDataset, val_data : Optional[MultiTaskDataset]=None, writer : Optional[SummaryWriter] = None):
+        import time
+        from shutil import copyfile
+
+        torch.autograd.set_detect_anomaly(True) # detects nans and terminates training
+        if self.problem.train_on_encoded_x or self.problem.train_on_encoded_y:
+            print("Training on encoded input and/or output")
+            #create a new dataset of encoded input/output pairs and train on that
+            x_encoder = self.problem.x_encoder if not self.problem.train_on_encoded_x else None
+            y_encoder = self.problem.y_encoder if not self.problem.train_on_encoded_y else None
+            mod_problem = replace(self.problem,x_encoder=x_encoder,y_encoder=y_encoder,train_on_encoded_x=False,train_on_encoded_y=False)
+            orig_problem = mod_problem
+            self.problem = mod_problem
+            train_tasks = [[(self.problem.encode_input(x),self.problem.encode_output(y)) for x,y in task] for task in train_data]
+            train_data = StandardMultiTaskDataset(train_tasks)
+            if val_data is not None:
+                val_tasks = [[(self.problem.encode_input(x),self.problem.encode_output(y)) for x,y in task] for task in val_data]
+                val_data = StandardMultiTaskDataset(val_tasks)
+            self.train(train_data,val_data)           
+            self.problem = orig_problem
+            return
+
+        # copy config file, helps in reproducibility
+        checkpoint_dir = self.params.get('checkpoint_dir',None)
+        if checkpoint_dir is not None:
+            os.makedirs(self.params['checkpoint_dir'], exist_ok=True)
+            if self.params_file is not None:
+                copyfile(self.params_file, os.path.join(self.params['checkpoint_dir'], 'config.yaml'))
+            else:
+                with open(os.path.join(self.params['checkpoint_dir'],'config.yaml'),'w') as f:
+                    yaml.dump(self.params,f)
+
+        if self.params.get('seed',None) is not None:
+            set_seed(self.params['seed'])
+        created_writer = False
+        if writer is None:
+            writer = SummaryWriter(log_dir=self.params.get('log_dir','training_logs'))
+            created_writer = True
+
+    
+        zero_shot_batch_size = self.params.get('zero_shot_batch_size',None)
+        zero_shot_num_workers = self.params.get('zero_shot_num_workers',0)
+        zero_shot_train_dataset = FlatDataset(train_data)
+        print("Using a zero-shot train dataset of length",len( zero_shot_train_dataset))
+        if zero_shot_batch_size is not None:
+            zero_shot_train_loader = DataLoader(dataset= zero_shot_train_dataset, batch_size= zero_shot_batch_size, shuffle=True, num_workers= zero_shot_num_workers)#, pin_memory=True)
+        else:
+            zero_shot_train_loader = DataLoader(dataset= zero_shot_train_dataset, batch_size=len( zero_shot_train_dataset), shuffle=True, num_workers= zero_shot_num_workers)#, pin_memory=True)
+            
+        # set batch_size  and num_workers to 1 and keep them fixed for consistency across experiments
+        val_loader = None
+        if val_data is not None:
+            st = time.time()
+            zero_shot_val_dataset = FlatDataset(val_data)
+            if  zero_shot_batch_size is not None:
+                zero_shot_val_loader = DataLoader(dataset= zero_shot_val_dataset, batch_size= zero_shot_batch_size, shuffle=False, num_workers= zero_shot_num_workers)#, pin_memory=True)
+            else:
+                zero_shot_val_loader = DataLoader(dataset= zero_shot_val_dataset, batch_size=len( zero_shot_val_dataset), shuffle=False, num_workers= zero_shot_num_workers)#, pin_memory=True)
+        
+        self.zero_shot_train(zero_shot_train_loader, zero_shot_val_loader, writer)
+
+        #few-shot training
+        support_set_size = self.params.get('k_shot',None)    
+        query_set_size = self.params.get('query_set_size',None)
+        num_draws_per_task = self.params.get('num_draws_per_task',10)
+        task_batch_size = self.params.get('task_batch_size',1)
+        if isinstance(support_set_size,list):
+            if task_batch_size > 1:
+                raise ValueError("task_batch_size must be 1 for variable support set size, got {}".format(task_batch_size))
+        train_task_dataset = FewShotDataset(train_data,support_set_size,query_set_size,num_draws_per_task)
+        print("Size of few-shot dataset: ",len(train_task_dataset))
+        print("Average support set size",np.mean([len(s[0][0]) for s in train_task_dataset]))
+        print("Average query set size",np.mean([len(s[1][0]) for s in train_task_dataset]))
+        train_loader = DataLoader(train_task_dataset, batch_size=task_batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate)#, pin_memory=True)
+
+        if val_data is not None:
+            # For validation, we only look at highest-shot k-shot for clean validation loss curve
+            t0 = time.time()
+            if isinstance(support_set_size, list):
+                support_set_size=max(support_set_size)
+            val_task_dataset = FewShotDataset(val_data,support_set_size)
+            val_loader = DataLoader(val_task_dataset, batch_size=1, shuffle=False, num_workers=num_workers, collate_fn=collate)#, pin_memory=True)
+            if time.time()-t0 > 1.0:
+                print ('time to construct val data / dataloader: ', time.time()-t0, len(val_loader.dataset))
+
+        self.adaptive_zero_shot_train(train_loader, val_loader, writer)
+
+        self.save()
+        if hasattr(self,'reset'):
+            #during training, some support sets may have been set. These need to be cleared
+            self.reset()
+
+        if created_writer:
+            writer.flush()
+            writer.close()
 
 def totorch(data):
     """Converts tensors, numpy arrays, and lists of such items to torch Tensors.

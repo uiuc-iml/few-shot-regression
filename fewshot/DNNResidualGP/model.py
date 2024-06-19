@@ -156,7 +156,6 @@ class DNNResidualGPModel(TorchTrainableModel,AdaptiveModel,ProbabilisticModel):
                 query_data = tuple([data.float().to(self.device) for data in query_data])
                 supp_x, supp_y = support_data
                 query_x, query_y = query_data
-               
 
                 #for j in range(nsteps_task):
                 optimizer.zero_grad()

@@ -153,6 +153,22 @@ class SubsetMultiTaskDataset(MultiTaskDataset):
     def __getitem__(self, i:int) -> TaskDataset:
         return self.data[self.task_indices[i]]
 
+class MergedMultiTaskDataset(MultiTaskDataset):
+    "Merge 2 multi-task Datasets"
+    def __init__(self, dataset_1, dataset_2) -> None:
+        self.length_1 = len(dataset_1)
+        self.length_2 = len(dataset_2)
+        self.dataset_1 = dataset_1
+        self.dataset_2 = dataset_2
+    def __len__(self):
+        return self.length_1 + self.length_2
+    
+    def __getitem__(self,i):
+        if i >= self.length_1:
+            return self.dataset_2[i - self.length_1]
+        else:
+            return self.dataset_1[i]
+
 
 class FlatDataset:
     """Converts a multi-task dataset to a Pytorch-compatible dataloader
@@ -170,6 +186,32 @@ class FlatDataset:
     def __getitem__(self,i:int) -> Tuple[Any,Any]:
         return self.all_data[i]
 
+class InTaskSplittingFlatDataset(FlatDataset):
+    """A dataset that does train-val split"""
+    def __init__(self,data : MultiTaskDataset, train_split = False, val_split = False, train_fraction = 0.9):
+        self.all_data = []
+        if train_split:
+            for task in data:
+                N = len(task)
+                for i in range(0,int(train_fraction*N)):
+                    self.all_data.append(task[i])
+            return
+        if val_split:
+            for task in data:
+                N = len(task)
+                for i in range(int(train_fraction*N),N):
+                    self.all_data.append(task[i])
+            return
+
+        for task in data:
+            for i in range(len(task)):
+                self.all_data.append(task[i])
+
+    def __len__(self):
+        return len(self.all_data)#sum(len(task) for task in self.data)
+    
+    def __getitem__(self,i:int) -> Tuple[Any,Any,Any]:
+        return self.all_data[i]
 
 class TaskBatchedDataset:
     """Converts a multi-task dataset into a batched Pytorch-compatible
@@ -276,7 +318,6 @@ class FewShotDataset:
                 ndraws = num_draws_per_task
             elif isinstance(num_draws_per_task,float):
                 ndraws = int(len(task)*num_draws_per_task)
-            from icecream import ic
             for draw in range(ndraws):
                 #sample a support set from the task
                 if isinstance(self.support_size,int):
