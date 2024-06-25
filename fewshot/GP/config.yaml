@@ -12,6 +12,7 @@ num_workers: 0
 
 #if you want to train a few-shot GP, you can specify the k_shot parameter, e.g., k_shot: 5, or k_shot: [1, 2, 3, 4, 5]
 # k_shot: [1, 2,3,4,5]
+# resample_per_epoch: False
 
 ### GP-specific settings ###
 

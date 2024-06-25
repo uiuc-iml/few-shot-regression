@@ -153,7 +153,8 @@ class _ExactMOGPModule(gpytorch.models.ExactGP):
         #should we use this instead?
         #self.kernel = gpytorch.kernels.MultitaskKernel(gpytorch.kernels.RBFKernel(), num_tasks=num_outputs, rank=num_outputs)
         self.task_covar_module = gpytorch.kernels.IndexKernel(num_tasks=num_outputs, rank=rank)
-        self.covar_module = make_kernel(params,train_x.shape[-1])
+        self.covar_module = make_kernel(params,train_x.shape[-1]).base_kernel  #.base_kernel: ignore scale kernel
+        #self.covar_module = make_kernel(params,train_x.shape[-1])
         
         noise_constraint=None
         if hasattr(params,'noise_constraint'):

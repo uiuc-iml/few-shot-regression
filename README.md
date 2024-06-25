@@ -70,6 +70,7 @@ m = model_class(problem)
 problem.params['k_shot']=5
 problem.params['query_size']=100
 problem.params['num_draws_per_task']=10
+problem.params['resample_per_epoch']=True
 
 model.train(train_dataset,val_dataset)
 model.save("my_model.pkl")
@@ -157,6 +158,7 @@ For few-shot learning methods, the following parameters modify how the (support,
 - query_size: how many objecst to draw in the query size
 - num_draws_per_task: how many samples are drawn per task
 - task_batch_size: batch size of few-shot training
+- resample_per_epoch: whether to resample each support-query split per epoch or to keep them fixed through training.
 
 You may have to modify hyperparameters for a given problem. The best practice is to copy the
 standard file into another directory *outside* of the `fewshot` folder and then modify it.  Config files

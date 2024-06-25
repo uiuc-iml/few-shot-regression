@@ -370,6 +370,8 @@ class TorchTrainingParams:
     - k_shot: either an int or list of ints if few-shot training is used.
         defaults to None, which uses standard training.
     - num_draws_per_task: # of draws used per task. default 10
+    - resample_per_epoch: if you would like to resample the few-shot training
+        set each epoch, set this to True.  Default False.
     - query_set_size: if not None, few-shot training will use this number
         of query points.  Default None.
     - task_batch_size: if few-shot training is used, the number of tasks in a
@@ -395,6 +397,7 @@ class TorchTrainingParams:
     patience: int = 100
     k_shot: Optional[Union[int,List[int]]] = None
     num_draws_per_task: int = 10
+    resample_per_epoch : bool = False
     query_set_size: Optional[int] = None
     task_batch_size: int = 1
     train_x_encoder : bool = True
@@ -460,6 +463,9 @@ class TorchTrainableModel(TrainableModel):
 
         # Load backbone to device
         self.problem.setup_backbone()
+        #store backbone as attributes so they are saved and loaded as part of state_dict()
+        self.x_encoder = self.problem.x_encoder
+        self.y_encoder = self.problem.y_encoder
 
         # load pretrained observation_action_encoder
         if self.params.get('x_encoder', None):
@@ -626,16 +632,17 @@ class TorchTrainableModel(TrainableModel):
             created_writer = True
 
         st = time.time()
-        support_set_size = self.params.get('k_shot',None)   
+        support_set_size = self.params.get('k_shot',None)
+        resample_per_epoch = self.params.get('resample_per_epoch',False)
         batch_size = self.params.get('batch_size',None)
         num_workers = self.params.get('num_workers',0)
         if support_set_size is None:
             train_dataset = FlatDataset(train_data)
             print("Using a flattened dataset of length",len(train_dataset))
-            if batch_size is not None:
-                train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)#, pin_memory=True)
-            else:
-                train_loader = DataLoader(dataset=train_dataset, batch_size=len(train_dataset), shuffle=True, num_workers=num_workers)#, pin_memory=True)
+            if batch_size is None:
+                batch_size = len(train_dataset)
+            #Note: resample_per_epoch doesn't do anything: FlatDataset naturally resamples from the dataset
+            train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)#, pin_memory=True)
             
             # set batch_size  and num_workers to 1 and keep them fixed for consistency across experiments
             if val_data is not None:
@@ -652,14 +659,18 @@ class TorchTrainableModel(TrainableModel):
             task_batch_size = self.params.get('task_batch_size',1)
             if isinstance(support_set_size,list):
                 if task_batch_size > 1:
-                    raise ValueError("task_batch_size must be 1 for variable support set size, got {}".format(task_batch_size))
+                    raise ValueError("task_batch_size must be 1 for variable support set size, got {}".format(task_batch_size))\
+        
             train_task_dataset = FewShotDataset(train_data,support_set_size,query_set_size,num_draws_per_task)
             print("Size of few-shot dataset: ",len(train_task_dataset))
             print("Average support set size",np.mean([len(s[0][0]) for s in train_task_dataset]))
             print("Average query set size",np.mean([len(s[1][0]) for s in train_task_dataset]))
-            train_loader = DataLoader(train_task_dataset, batch_size=task_batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate)#, pin_memory=True)
-            if time.time()-st > 1.0:
-                print ('time to construct train data / dataloader: ', time.time()-st, len(train_loader.dataset))
+            if resample_per_epoch:
+                train_loader = lambda : DataLoader(FewShotDataset(train_data,support_set_size,query_set_size,num_draws_per_task), batch_size=task_batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate)#, pin_memory=True)
+            else:
+                train_loader = DataLoader(train_task_dataset, batch_size=task_batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate)#, pin_memory=True)
+                if time.time()-st > 1.0:
+                    print ('time to construct train data / dataloader: ', time.time()-st, len(train_loader.dataset))
 
             if val_data is not None:
                 # For validation, we only look at highest-shot k-shot for clean validation loss curve
@@ -671,12 +682,23 @@ class TorchTrainableModel(TrainableModel):
                 if time.time()-t0 > 1.0:
                     print ('time to construct val data / dataloader: ', time.time()-t0, len(val_loader.dataset))
 
+        self.train_loop(train_loader, val_loader, writer)
+
+        if created_writer:
+            writer.flush()
+            writer.close()
+
+    def train_loop(self, train_loader : Union[DataLoader,Callable], val_loader : Optional[DataLoader], writer : Optional[SummaryWriter]):
         # initialize the early_stopping object
         patience = self.params.get('patience',100)
         if patience < self.params['epochs']:
             self.early_stopping = EarlyStopping(patience=patience, verbose=True)
         else:
             self.early_stopping = None
+        if callable(train_loader):
+            train_loader_func = train_loader
+        else:
+            train_loader_func = lambda: train_loader
 
         LEARNING_RATE_CLIP = 1e-5
 
@@ -686,6 +708,8 @@ class TorchTrainableModel(TrainableModel):
             if self.params.get('lr_decay',0):
                 for g in self.optimizer.param_groups:
                     g['lr'] = max(self.params['lr'] * (self.params['lr_decay'] ** (epoch // self.params['lr_step'])), LEARNING_RATE_CLIP)
+
+            train_loader = train_loader_func()  #generate a train loader -- can be used for data augmentation
             self.train_epoch(train_loader, epoch, writer)
 
             res = self.test_epoch(val_loader, epoch, writer)
@@ -701,9 +725,6 @@ class TorchTrainableModel(TrainableModel):
             #during training, some support sets may have been set. These need to be cleared
             self.reset()
 
-        if created_writer:
-            writer.flush()
-            writer.close()
 
     def load(self, fn=None):
         if fn is None:
