@@ -357,35 +357,33 @@ class CoDeGaModel(TwoStageTorchTrainableModel,AdaptiveModel,ProbabilisticModel):
                 g['lr'] = max(self.params['gp_lr'] * (self.params['gp_lr_decay'] ** (epoch // self.params['gp_lr_step'])), LEARNING_RATE_CLIP)
             optimizer.zero_grad()
 
-            support_data = tuple([data.float().to(self.device) for data in support_data])
-            query_data = tuple([data.float().to(self.device) for data in query_data])
-            supp_x, supp_y = support_data
-            query_x, query_y = query_data
-
-            x = torch.cat([supp_x, query_x], dim=-2)
-            y = torch.cat([supp_y, query_y], dim=-2)
-            support_N = supp_x.size(1)
-
+            with torch.no_grad():
+                if len(support_data) > 2: # not simply [x,y]
+                    x_core_supp = self.problem.encode_input(tuple([data.float().to(self.device) for data in support_data[:-1]]))
+                    x_core_query = self.problem.encode_input(tuple([data.float().to(self.device) for data in query_data[:-1]]))
+                    y_core_supp = self.problem.encode_output(tuple([data.float().to(self.device) for data in support_data[-1]]))
+                    y_core_query = self.problem.encode_output(tuple([data.float().to(self.device) for data in query_data[-1]]))
+                else:
+                    x_core_supp = self.problem.encode_input(support_data[0].float().to(self.device))
+                    x_core_query = self.problem.encode_input(query_data[0].float().to(self.device))
+                    y_core_supp = self.problem.encode_output(support_data[1].float().to(self.device))
+                    y_core_query = self.problem.encode_output(query_data[1].float().to(self.device))
+                support_N = x_core_supp.size(-2)
+                x_core = torch.cat([x_core_supp, x_core_query], dim=-2)
+                y_core = torch.cat([y_core_supp, y_core_query], dim=-2)
+            
             preds = []
             sumloss = None
-            for b in range(len(x)):
+            for b in range(len(x_core)):
                 with torch.no_grad():
-                    x_core = self.problem.encode_input(x[b])
-                    y_core = self.problem.encode_output(y[b])
-                    mean = self.model.mean_model(x_core)
-                    self.model.condition_core(x_core,y_core)
+                    mean = self.model.mean_model(x_core[b])
+                    self.model.condition_core(x_core[b],y_core[b])
                     residuals = y_core - mean
-                x_gp = self.model.deep_kernel(x_core)
+                x_gp = self.model.deep_kernel(x_core[b])
                 output_gp = self.model.gp_model(x_gp)
                 dist = self.model.GP_likelihood(output_gp)
-                # print(residuals.squeeze(-1))
                 gp_loss = -self.model.mll(output_gp,residuals.squeeze(-1)) 
                 p = dist.mean.unsqueeze(-1) + mean
-                # if not torch.isnan(gp_loss):
-                #     gp_loss.backward(retain_graph=True)
-                #     optimizer.step()
-                # else:
-                #     print('Nan loss')
                 if sumloss is None:
                     sumloss = gp_loss
                 else:
