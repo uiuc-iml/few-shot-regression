@@ -21,4 +21,5 @@ hidden_batchnorm: False
 #gp_loss: 'conditional' # 'marginal' or 'conditional' for few-shot learning
 gp_lr: 0.1
 gp_training_iter: 50
+gp_kernel: 'RBFKernel'
 #gp_kernel_independent_scaling: true #if true, each dimension of the input is scaled independently

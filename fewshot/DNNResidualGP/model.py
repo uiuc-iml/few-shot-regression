@@ -7,14 +7,11 @@ from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import gpytorch
 
-from ..decisions.task import DecisionTask
 from ..data import MultiTaskDataset,FlatDataset,FewShotDataset
 from ..utils import MLP,TorchTrainableModel, totorch, EarlyStopping
 from ..model import SupervisedLearningProblem,AdaptiveModel,ProbabilisticModel,TorchModelModule
 from ..GP.model import GP
 from .. import utils
-
-
 
 class DNNMeanResidualGPs(TorchModelModule):
     """
@@ -42,7 +39,7 @@ class DNNMeanResidualGPs(TorchModelModule):
 
         #move all gp_ parameters to gp_params
         gp_params = {}
-        for (k,v) in params:
+        for (k,v) in params.items():
             if k.startswith('gp_'):
                 gp_params[k[3:]] = v
         gp_params['zero_mean'] = True  #force the MLP to absorb the constant offset?
@@ -70,16 +67,21 @@ class DNNMeanResidualGPs(TorchModelModule):
 
     @torch.no_grad()    
     def condition_core(self, support_x, support_y):
-        print("Support x shape: ", support_x.shape)
-        print("Support y shape: ", support_y.shape)
         if len(support_x) == 0:
             self.residual_model.condition(support_x, support_y)
             return
         reward_mean_supp = self.mean_model(support_x)
         self.residual_model.condition(support_x, support_y - reward_mean_supp)
     
+    def state_dict(self):
+        checkpoint = dict()
+        checkpoint['mean_model'] = self.mean_model.state_dict()
+        checkpoint['residual_model'] = self.residual_model.state_dict()
+        return checkpoint
 
-    
+    def load_state_dict(self, state):
+        self.mean_model.load_state_dict(state['mean_model'])
+        self.residual_model.load_state_dict(state['residual_model'])
     
 class DNNResidualGPModel(TorchTrainableModel,AdaptiveModel,ProbabilisticModel):
     """
@@ -154,18 +156,25 @@ class DNNResidualGPModel(TorchTrainableModel,AdaptiveModel,ProbabilisticModel):
                 query_data = tuple([data.float().to(self.device) for data in query_data])
                 supp_x, supp_y = support_data
                 query_x, query_y = query_data
-                self.model.condition(supp_x,supp_y)
-                with torch.no_grad():
-                    query_x_core = self.problem.encode_input(query_x)
-                    query_y_core = self.problem.encode_output(query_y) - self.model.mean_model(query_x_core)
 
-                for j in range(nsteps_task):
-                    optimizer.zero_grad()
-                    GP_loss, output = self.model.residual_model.forward_core_loss(query_x_core,query_y_core)
-                    GP_loss.backward(retain_graph=True)
-                    optimizer.step()
-                
-                return GP_loss, output
+                #for j in range(nsteps_task):
+                optimizer.zero_grad()
+                preds = []
+                sumloss = None
+                for b in range(len(supp_x)):
+                    self.model.condition(supp_x[b],supp_y[b])
+                    with torch.no_grad():
+                        query_x_core = self.problem.encode_input(query_x)
+                        query_y_core = self.problem.encode_output(query_y) - self.model.mean_model(query_x_core)
+                    loss, p = self.model.residual_model.forward_core_loss(query_x_core[b],query_y_core[b])
+                    if sumloss is None:
+                        sumloss = loss
+                    else:
+                        sumloss += loss
+                    preds.append(p)
+                sumloss.backward(retain_graph=True)
+                self.optimizer.step()
+                return sumloss/b, torch.stack(preds,dim=0)  #aggregate predictions
 
             for epoch in range(training_iter):
                 utils.fewshot_training_epoch(gp_train_loader, optimize_step)
@@ -205,11 +214,13 @@ class DNNResidualGPModel(TorchTrainableModel,AdaptiveModel,ProbabilisticModel):
         #train the mean using the MSE loss
         TorchTrainableModel.train(self, train_data, val_data, writer)
 
+        fn = os.path.join(self.params['checkpoint_dir'], 'model.tar')      
+        self.save(fn)
         #Now train the GP
-        fn = os.path.join(self.params['checkpoint_dir'], 'model.tar')       
+         
         self.load(fn)  # The loaded model only has trained mean
         self.gp_train_loop(train_data)
-        #ic(2,self.model.state_dict())
+
         self.model.eval()
         self.save(fn)
         

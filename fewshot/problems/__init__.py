@@ -1,0 +1,1 @@
+from .allbenchmarks import all_benchmarks

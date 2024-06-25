@@ -21,3 +21,4 @@ hidden_batchnorm: False
 #gp_k_shot: 10   #few-shot learning
 gp_lr: 0.1
 gp_training_iter: 50
+gp_kernel: 'RBFKernel'
