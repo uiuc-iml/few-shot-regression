@@ -1,0 +1,38 @@
+#standard settings
+epochs: 100
+zero_shot_batch_size: 128
+adaptive_batch_size: 128
+optimizer: Adam
+dropout: 0 
+checkpoint_dir: checkpoint_dir/CoDeGa
+val_freq: 1
+num_workers: 16
+lr_decay: 0.9 
+lr_step: 40 
+
+#DNN hidden layers
+hidden_layers: [16,8,4] 
+hidden_batchnorm:  False
+lr: 0.005
+patience: 5 
+
+#deep kernel parameters 
+use_noise_constraint: False
+CoDeGa_gp_training_epoch: 200
+penalize_split_encoder: False
+split_encoder_penalty: 1
+##GP learning parameters
+gp_k_shot: 10   #few-shot learning, should use the entire task's data
+gp_kernel: 'RBFKernel'
+
+### params deep kernel from scratch
+gp_lr: 0.01 
+gp_lr_decay: 1 
+gp_lr_step: 20 
+
+gp_input_dim: 4  
+gp_layers:  [16,8]
+gp_batchnorm: False
+
+
+
