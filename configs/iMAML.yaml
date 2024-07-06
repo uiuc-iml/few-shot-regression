@@ -1,0 +1,26 @@
+#standard settings
+epochs: 100
+inner_epochs: 25 
+task_batch_size: 10
+optimizer: Adam
+inner_lr: 0.001
+outer_lr: 0.001
+lambda: 2.0
+cg_damping: 100.0
+cg_steps: 10
+# lr_decay: 1 #0.7
+# lr_step: 20
+checkpoint_dir: checkpoint_dir/iMAML
+
+online_train_epochs: 25
+online_lr: 0.001
+
+val_freq: 1 # additional parameter to explicitly set validation frequency
+num_workers: 8
+
+hidden_layers: [16,8,4]
+hidden_batchnorm:  False #False #
+
+#Few-shot training settings
+k_shot: 10 
+k_max: 10

@@ -14,6 +14,7 @@ def all_models() -> dict:
     from .GP import GPModel
     from .MAML import MAMLModel
     from .CoDeGa import CoDeGaModel
+    from .iMAML import iMAMLModel
     return {
         'ADKL':ADKLModel,
         'CNP':CNPModel,
@@ -27,6 +28,7 @@ def all_models() -> dict:
         'FSGP':GPModel, 
         'MAML':MAMLModel,
         'CoDeGa':CoDeGaModel,
+        'iMAML':iMAMLModel,
     }
 
 def probabilistic_models() -> Dict[str,ProbabilisticModel]:

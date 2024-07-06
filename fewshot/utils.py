@@ -958,6 +958,18 @@ def frombatch(data : Union[torch.Tensor,Tuple]) -> torch.Tensor:
         return [frombatch(d) for d in data]
     raise ValueError("Invalid type of data sent to frombatch, must be a Tensor or sequence of Tensors")
 
+def get_torchmodel_params(model):
+    params = [param.data.view(-1) for param in model.parameters()]
+    if len(params) < 1:
+        return torch.tensor([])
+    return torch.cat(params, 0).clone()
+
+def set_torchmodel_params(param_vals, model):
+        offset = 0
+        for param in model.parameters():
+            param.data.copy_(param_vals[offset:offset + param.nelement()].view(param.size()))
+            offset += param.nelement()
+
 def collate(data):
     return _utils.collate.default_collate(data)
     
